@@ -10,6 +10,7 @@ export const registerUser = async (name, email, password) => {
       name,
       email,
       password: hashedPassword,
+      role: "user",
     },
   });
 
@@ -28,7 +29,7 @@ export const loginUser = async (email, password) => {
   if (!isMatch) throw new Error("Invalid credentials");
 
   const token = jwt.sign(
-    { id: user.id, email: user.email },
+    { id: user.id, email: user.email, role: user.role, },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
   );
