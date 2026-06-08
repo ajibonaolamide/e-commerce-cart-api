@@ -4,9 +4,12 @@ import prisma from "../config/prisma.js";
 export const addToCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, quantity = 1 } = req.body;
+    const { productId, quantity } = req.body;
 
-    // check product exists
+    if (!productId || !quantity || quantity < 1) {
+      return res.status(400).json({ message: "Invalid input" });
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -15,20 +18,20 @@ export const addToCart = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // get or create cart
+    if (quantity > product.stock) {
+      return res.status(400).json({ message: "Insufficient stock" });
+    }
+
     let cart = await prisma.cart.findUnique({
       where: { userId },
-      include: { items: true },
     });
 
     if (!cart) {
       cart = await prisma.cart.create({
         data: { userId },
-        include: { items: true },
       });
     }
 
-    // check if item already exists
     const existingItem = await prisma.cartItem.findFirst({
       where: {
         cartId: cart.id,
@@ -37,17 +40,20 @@ export const addToCart = async (req, res) => {
     });
 
     if (existingItem) {
-      const updated = await prisma.cartItem.update({
+      const newQuantity = existingItem.quantity + quantity;
+
+      if (newQuantity > product.stock) {
+        return res.status(400).json({ message: "Exceeds stock limit" });
+      }
+
+      const updatedItem = await prisma.cartItem.update({
         where: { id: existingItem.id },
-        data: {
-          quantity: existingItem.quantity + quantity,
-        },
+        data: { quantity: newQuantity },
       });
 
-      return res.json(updated);
+      return res.json(updatedItem);
     }
 
-    // create new item
     const cartItem = await prisma.cartItem.create({
       data: {
         cartId: cart.id,
@@ -66,9 +72,7 @@ export const addToCart = async (req, res) => {
 export const getCart = async (req, res) => {
   try {
     const cart = await prisma.cart.findUnique({
-      where: {
-        userId: req.user.id,
-      },
+      where: { userId: req.user.id },
       include: {
         items: {
           include: {
@@ -78,17 +82,31 @@ export const getCart = async (req, res) => {
       },
     });
 
+    if (!cart) {
+      return res.json({
+        items: [],
+        totalQuantity: 0,
+        totalPrice: 0,
+      });
+    }
+
     const totalPrice = cart.items.reduce(
-      (total, item) => total + item.quantity * item.product.price,
-      0
+      (sum, item) => sum + item.quantity * item.product.price,
+      0,
+    );
+
+    const totalQuantity = cart.items.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
     );
 
     res.json({
       ...cart,
+      totalQuantity,
       totalPrice,
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -115,6 +133,10 @@ export const updateCartItem = async (req, res) => {
 
     if (!cartItem) {
       return res.status(404).json({ message: "Cart item not found" });
+    }
+
+    if (quantity > cartItem.product?.stock) {
+      return res.status(400).json({ message: "Exceeds stock" });
     }
 
     const updated = await prisma.cartItem.update({
