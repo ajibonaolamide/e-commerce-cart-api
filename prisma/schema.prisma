@@ -12,8 +12,10 @@ model User {
   name     String
   email    String @unique
   password String
+  role     String @default("user")
 
-  cart Cart?
+  cart   Cart?
+  orders Order[] // ✅ ADD THIS
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -26,7 +28,8 @@ model Product {
   price       Float
   stock       Int     @default(0)
 
-  cartItems CartItem[]
+  cartItems  CartItem[]
+  orderItems OrderItem[] // ✅ ADD THIS
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -60,41 +63,27 @@ model CartItem {
 }
 
 model Order {
-  id        String      @id @default(uuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  items     OrderItem[]
+  items OrderItem[]
 
-  total     Float
-  status    String      @default("pending")
-
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-}
-
-model OrderItem {
-  id        String   @id @default(uuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id])
-
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-
-  quantity  Int
-  price     Float
-}
-
-model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-
-  role      String   @default("user")
-
-  cart      Cart?
+  total  Float
+  status String @default("pending")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+  price    Float
 }
