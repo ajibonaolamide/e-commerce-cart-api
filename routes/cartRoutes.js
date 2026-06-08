@@ -4,6 +4,7 @@ import {
   getCart,
   updateCartItem,
   removeCartItem,
+    clearCart,
 } from "../controllers/cartController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -16,5 +17,6 @@ router.get("/", protect, getCart);
 // NEW ROUTES
 router.patch("/item/:id", protect, updateCartItem);
 router.delete("/item/:id", protect, removeCartItem);
+router.delete("/clear", protect, clearCart);
 
 export default router;

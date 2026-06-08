@@ -65,24 +65,30 @@ export const addToCart = async (req, res) => {
 // GET CART
 export const getCart = async (req, res) => {
   try {
-    const userId = req.user.id;
-
     const cart = await prisma.cart.findUnique({
-      where: { userId },
+      where: {
+        userId: req.user.id,
+      },
       include: {
         items: {
-          include: { product: true },
+          include: {
+            product: true,
+          },
         },
       },
     });
 
-    if (!cart) {
-      return res.json({ items: [] });
-    }
+    const totalPrice = cart.items.reduce(
+      (total, item) => total + item.quantity * item.product.price,
+      0
+    );
 
-    res.json(cart);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.json({
+      ...cart,
+      totalPrice,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -146,6 +152,30 @@ export const removeCartItem = async (req, res) => {
     });
 
     res.json({ message: "Item removed from cart" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const clearCart = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const cart = await prisma.cart.findUnique({
+      where: { userId },
+    });
+
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    await prisma.cartItem.deleteMany({
+      where: {
+        cartId: cart.id,
+      },
+    });
+
+    res.json({ message: "Cart cleared successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
